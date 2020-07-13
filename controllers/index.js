@@ -1,5 +1,7 @@
 const mysql = require('mysql');
 const bcrypt = require('bcrypt-nodejs');
+const uuid = require('uuid4');
+const moment = require('moment');
 const connection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
@@ -10,40 +12,40 @@ const connection = mysql.createConnection({
 
 connection.connect();
 
-var basicAPI = function(req, res) {
+// var basicAPI = function(req, res) {
   
-  connection.query('SELECT * from users', (error, rows, fields) => {
-    if (error) throw error;
-    console.log(rows);
-    res.status(200).json(
-      rows[0]
-    );
-  });
+//   connection.query('SELECT * from users', (error, rows, fields) => {
+//     if (error) throw error;
+//     console.log(rows);
+//     res.status(200).json(
+//       rows[0]
+//     );
+//   });
   
-  // connection.end();
-  // res.status(200).json(
-  //   {
-  //     "success": true
-  //   }
-  // );
-}
+//   // connection.end();
+//   // res.status(200).json(
+//   //   {
+//   //     "success": true
+//   //   }
+//   // );
+// }
 
-var testAPI = function(req, res) {
-  res.status(200).json(
-    {
-      "message": "hi"
-    }
-  );
-}
+// var testAPI = function(req, res) {
+//   res.status(200).json(
+//     {
+//       "message": "hi"
+//     }
+//   );
+// }
 
-var postTestAPI = function(req, res) {
-  const user_message = req.body.message;
-  res.status(200).json(
-    {
-      "message": user_message
-    }
-  );
-}
+// var postTestAPI = function(req, res) {
+//   const user_message = req.body.message;
+//   res.status(200).json(
+//     {
+//       "message": user_message
+//     }
+//   );
+// }
 
 var loginAPI = function(req, res) {
   const account = req.body.account;
@@ -108,56 +110,6 @@ var loginAPI = function(req, res) {
       }
     );
   })
-
-  // connection.query('SELECT * from users where account=?',  [account], (error, rows, fields) => {
-  //   var resultCode = 404;
-  //   var message = "에러가 발생했습니다.";
-
-  //   if (error)
-  //     throw error;
-
-  //   else if(rows.length) {
-  //     // 첫 로그인 시
-  //     if(rows[0].is_valid == 0) {
-  //       if(password != rows[0].password) {
-  //         resultCode = 204;
-  //         message = "비밀번호가 틀렸습니다.";
-  //       }
-  //       else {
-  //         resultCode = 200;
-  //         message = '로그인 성공! ' + rows[0].account + '님 환영합니다.';
-  //       }
-  //     }
-  //     // 비밀번호 변경 후 로그인 시
-  //     else {
-  //       bcrypt.compare(password, rows[0].password, function(err, res){
-  //         if(res) {
-  //           resultCode = 200;
-  //           message = '로그인 성공! ' + rows[0].account + '님 환영합니다.';
-  //           console.log(resultCode);
-  //           console.log(message);
-  //         }
-  //         else {
-  //           resultCode = 204;
-  //           message = "비밀번호가 틀렸습니다.";
-  //         }
-  //       })
-  //     }      
-  //   }
-  //   else {
-  //     resultCode = 204;
-  //     message = "존재하지 않는 계정입니다.";      
-  //   }
-
-  //   res.status(200).json(   
-  //     {
-  //       'code': resultCode,
-  //       'message': message,
-  //       'data': rows[0]
-  //     }
-  //   );
-    
-  // });
 }
 
 var changePasswordAPI = function(req, res) {
@@ -188,7 +140,7 @@ var changePasswordAPI = function(req, res) {
   })
 }
 
-var getEmployeesAPI = function(req, res) {
+var employeesAPI = function(req, res) {
   const division_id = req.query.division_id;
   const department_id = req.query.department_id;
   const search = req.query.search;
@@ -222,11 +174,142 @@ var getEmployeesAPI = function(req, res) {
   });
 }
 
+var employeeAPI = function(req, res) {
+  const employee_id = req.query.employee_id;
+
+  connection.query('SELECT * from employees where id = ?', [employee_id], (error, rows, fields) => {
+    var resultCode = 404;
+    var message = "에러가 발생했습니다.";
+
+    if (error) 
+      throw error;
+    else {
+      resultCode = 200;
+      message = "성공"
+    }
+
+    res.status(200).json(   
+      {
+        'code': resultCode,
+        'message': message,
+        'data': rows[0]
+      }
+    );    
+  });
+}
+
+var memoAPI = function(req, res){
+  const user_id = req.query.user_id;
+  const employee_id = req.query.employee_id;
+
+  connection.query('SELECT * FROM memo where user_id="' + user_id + '" and employee_id="' + employee_id + '"', (error, rows, fields) => {
+    var resultCode = 404;
+    var message = "에러가 발생했습니다.";
+
+    if (error) 
+      throw error;
+    else {
+      resultCode = 200;
+      message = "성공"
+    }
+
+    var data = {};
+
+    if(rows.length > 0) {
+      data = rows[0]
+    }
+
+    res.status(200).json(   
+      {
+        'code': resultCode,
+        'message': message,
+        'data': data
+      }
+    );    
+  });
+}
+
+var addMemoAPI = function(req, res) {
+  const user_id = req.body.user_id;
+  const employee_id = req.body.employee_id;
+  const memo = req.body.memo;
+
+  var post = {
+    id : uuid(),
+    user_id : user_id, 
+    employee_id : employee_id,
+    memo : memo, 
+    date : moment(Date.now()).format('YYYY-MM-DD HH:mm:ss')
+  }
+
+  connection.query('INSERT INTO memo SET ?', post, (error, rows, fields) => {
+    var resultCode = 404;
+    var message = "에러가 발생했습니다.";
+
+    if (error) 
+      throw error;
+    else {
+      resultCode = 200;
+      message = "성공"
+
+      connection.query('SELECT * FROM memo where user_id="' + user_id + '" and employee_id="' + employee_id + '"', (error, rows, fields) =>{
+        resultCode = 404;
+        message = "에러가 발생했습니다."
+
+        if(error)
+          throw error;
+        else {
+          resultCode = 200;
+          message = "성공"
+
+          res.status(200).json(
+            {
+              'code': resultCode,
+              'message': message,
+              'data': rows[0]
+            }
+          ); 
+        }        
+      })      
+    }
+  });
+}
+
+var updateMemoAPI = function(req, res) {
+  const memo_id = req.body.memo_id;
+  const memo = req.body.memo;
+
+  var post = {
+    memo : memo,
+    date : moment(Date.now()).format('YYYY-MM-DD HH:mm:ss')
+  }
+
+  connection.query('UPDATE memo SET ? where id = "' + memo_id + '"', post, (error, rows, fields) => {
+    var resultCode = 404;
+    var message = "에러가 발생했습니다.";
+
+    if (error) 
+      throw error;
+    else {
+      resultCode = 200;
+      message = "성공"
+    }
+
+    res.status(200).json(
+      {
+        'code': resultCode,
+        'message': message
+      }
+    );    
+  });
+}
+
 module.exports = {
-  basicAPI: basicAPI,
-  testAPI: testAPI,
-  postTestAPI: postTestAPI,
   loginAPI: loginAPI,
   changePasswordAPI: changePasswordAPI,
-  getEmployeesAPI: getEmployeesAPI
+  employeesAPI: employeesAPI,
+  employeeAPI: employeeAPI,
+  memoAPI: memoAPI,
+  addMemoAPI: addMemoAPI,
+  updateMemoAPI: updateMemoAPI
 }
