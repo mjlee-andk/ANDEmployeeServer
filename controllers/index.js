@@ -1,4 +1,5 @@
 const mysql = require('mysql');
+const bcrypt = require('bcrypt-nodejs');
 const connection = mysql.createConnection({
   host: 'localhost',
   user: 'root',
@@ -48,63 +49,143 @@ var loginAPI = function(req, res) {
   const account = req.body.account;
   const password = req.body.password;
 
-  connection.query('SELECT * from users where account = "' +  account + '"', (error, rows, fields) => {
-    var resultCode = 404;
-    var message = "에러가 발생했습니다.";
+  var resultCode = 404;
+  var message = "에러가 발생했습니다.";
 
-    if (error) 
-      throw error;
-    else {
-      if(rows.length == 0) {
-          resultCode = 204;
-          message = "존재하지 않는 계정입니다.";
+  const promise = new Promise(function(resolve, reject){
+    connection.query('SELECT * from users where account=?',  [account], (error, rows, fields) => {
+      // var resultCode = 404;
+      // var message = "에러가 발생했습니다.";
+
+      if (error) {
+        throw error;
+        reject();
       }
-      else if (password !== rows[0].password) {
-          resultCode = 204;
-          message = "비밀번호가 틀렸습니다.";
+
+      else if(rows.length) {
+        // 첫 로그인 시
+        if(rows[0].is_valid == 0) {
+          if(password != rows[0].password) {
+            resultCode = 204;
+            message = "비밀번호가 틀렸습니다.";
+          }
+          else {
+            resultCode = 200;
+            message = '로그인 성공! ' + rows[0].account + '님 환영합니다.';
+          }
+        }
+        // 비밀번호 변경 후 로그인 시
+        else {
+          bcrypt.compare(password, rows[0].password, function(err, res){
+            if(res) {
+              resultCode = 200;
+              message = '로그인 성공! ' + rows[0].account + '님 환영합니다.';
+              console.log(resultCode);
+              console.log(message);
+            }
+            else {
+              resultCode = 204;
+              message = "비밀번호가 틀렸습니다.";
+            }
+          })
+        }
+        resolve(rows[0]);
       }
       else {
-          resultCode = 200;
-          message = '로그인 성공! ' + rows[0].account + '님 환영합니다.';
+        resultCode = 204;
+        message = "존재하지 않는 계정입니다.";
+        resolve(rows);
       }
-      
-    }
+    });
+  })
 
+  promise.then(function(data) {
     res.status(200).json(   
       {
         'code': resultCode,
         'message': message,
-        'data': rows[0]
+        'data': data
       }
     );
+  })
+
+  // connection.query('SELECT * from users where account=?',  [account], (error, rows, fields) => {
+  //   var resultCode = 404;
+  //   var message = "에러가 발생했습니다.";
+
+  //   if (error)
+  //     throw error;
+
+  //   else if(rows.length) {
+  //     // 첫 로그인 시
+  //     if(rows[0].is_valid == 0) {
+  //       if(password != rows[0].password) {
+  //         resultCode = 204;
+  //         message = "비밀번호가 틀렸습니다.";
+  //       }
+  //       else {
+  //         resultCode = 200;
+  //         message = '로그인 성공! ' + rows[0].account + '님 환영합니다.';
+  //       }
+  //     }
+  //     // 비밀번호 변경 후 로그인 시
+  //     else {
+  //       bcrypt.compare(password, rows[0].password, function(err, res){
+  //         if(res) {
+  //           resultCode = 200;
+  //           message = '로그인 성공! ' + rows[0].account + '님 환영합니다.';
+  //           console.log(resultCode);
+  //           console.log(message);
+  //         }
+  //         else {
+  //           resultCode = 204;
+  //           message = "비밀번호가 틀렸습니다.";
+  //         }
+  //       })
+  //     }      
+  //   }
+  //   else {
+  //     resultCode = 204;
+  //     message = "존재하지 않는 계정입니다.";      
+  //   }
+
+  //   res.status(200).json(   
+  //     {
+  //       'code': resultCode,
+  //       'message': message,
+  //       'data': rows[0]
+  //     }
+  //   );
     
-  });
+  // });
 }
 
 var changePasswordAPI = function(req, res) {
   const user_id = req.body.user_id;
   const changePassword = req.body.change_password;
 
-  connection.query('UPDATE users SET password = "' + changePassword + '", is_valid=1  where id = "' +  user_id + '"', (error, rows, fields) => {
-  var resultCode = 404;
-  var message = "에러가 발생했습니다.";
+  bcrypt.hash(changePassword, null, null, function(err, hash){
+    connection.query('UPDATE users SET password = "' + hash + '", is_valid=1  where id = "' +  user_id + '"', (error, rows, fields) => {
+      var resultCode = 404;
+      var message = "에러가 발생했습니다.";
 
-  if (error) 
-    throw error;
-  else {      
-    resultCode = 200;
-    message = '비밀번호가 성공적으로 변경되었습니다.';
-  }
-
-  res.status(200).json(   
-      {
-        'code': resultCode,
-        'message': message,
-        'data': rows[0]
+      if (error) 
+        throw error;
+      else {      
+        resultCode = 200;
+        message = '비밀번호가 성공적으로 변경되었습니다.';
       }
-    );
-    
-  });
+
+      res.status(200).json(   
+          {
+            'code': resultCode,
+            'message': message,
+            'data': rows[0]
+          }
+        );
+      
+    });
+  })
 }
 
 var getEmployeesAPI = function(req, res) {
@@ -115,16 +196,9 @@ var getEmployeesAPI = function(req, res) {
   var query = 'SELECT * from employees where ';
   var queryWhere = '';
 
-  if(search != '' && search != undefined) {
-    queryWhere = queryWhere + 'name LIKE "%' + search + '%"';
-  }
-
-  if(division_id != '' && division_id != undefined) {
-    queryWhere = queryWhere + 'division_id LIKE "%' + division_id + '%"';
-  }
-  if(department_id != '' && department_id != undefined) {
-    queryWhere = queryWhere + 'department_id LIKE "%' + department_id + '%"';
-  }
+  queryWhere = queryWhere + 'name LIKE "%' + search + '%" and ';
+  queryWhere = queryWhere + 'division_id LIKE "%' + division_id + '%" and ';
+  queryWhere = queryWhere + 'department_id LIKE "%' + department_id + '%"';
 
   connection.query(query + queryWhere, (error, rows, fields) => {
     var resultCode = 404;
