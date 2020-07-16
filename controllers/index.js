@@ -12,41 +12,6 @@ const connection = mysql.createConnection({
 
 connection.connect();
 
-// var basicAPI = function(req, res) {
-  
-//   connection.query('SELECT * from users', (error, rows, fields) => {
-//     if (error) throw error;
-//     console.log(rows);
-//     res.status(200).json(
-//       rows[0]
-//     );
-//   });
-  
-//   // connection.end();
-//   // res.status(200).json(
-//   //   {
-//   //     "success": true
-//   //   }
-//   // );
-// }
-
-// var testAPI = function(req, res) {
-//   res.status(200).json(
-//     {
-//       "message": "hi"
-//     }
-//   );
-// }
-
-// var postTestAPI = function(req, res) {
-//   const user_message = req.body.message;
-//   res.status(200).json(
-//     {
-//       "message": user_message
-//     }
-//   );
-// }
-
 var loginAPI = function(req, res) {
   const account = req.body.account;
   const password = req.body.password;
@@ -145,12 +110,16 @@ var employeesAPI = function(req, res) {
   const department_id = req.query.department_id;
   const search = req.query.search;
 
-  var query = 'SELECT * from employees where ';
+  var query = 'SELECT e.id, e.name, e.gender, e.profile_img, e.extension_number, e.phone, e.birth, e.join_date, e.leave_date, dv.name AS division_name, dp.name AS department_name, p.name AS position_name FROM employees AS e LEFT JOIN divisions AS dv ON e.division_id = dv.id LEFT JOIN departments AS dp ON e.department_id = dp.id LEFT JOIN positions AS p ON e.position_id = p.id WHERE '
+  // var query = 'SELECT * from employees where ';
   var queryWhere = '';
+  queryWhere = queryWhere + 'e.name LIKE "%' + search + '%" and ';
+  queryWhere = queryWhere + 'e.division_id LIKE "%' + division_id + '%" and ';
+  queryWhere = queryWhere + 'e.department_id LIKE "%' + department_id + '%"';
 
-  queryWhere = queryWhere + 'name LIKE "%' + search + '%" and ';
-  queryWhere = queryWhere + 'division_id LIKE "%' + division_id + '%" and ';
-  queryWhere = queryWhere + 'department_id LIKE "%' + department_id + '%"';
+  // queryWhere = queryWhere + 'name LIKE "%' + search + '%" and ';
+  // queryWhere = queryWhere + 'division_id LIKE "%' + division_id + '%" and ';
+  // queryWhere = queryWhere + 'department_id LIKE "%' + department_id + '%"';
 
   connection.query(query + queryWhere, (error, rows, fields) => {
     var resultCode = 404;
@@ -177,7 +146,9 @@ var employeesAPI = function(req, res) {
 var employeeAPI = function(req, res) {
   const employee_id = req.query.employee_id;
 
-  connection.query('SELECT * from employees where id = ?', [employee_id], (error, rows, fields) => {
+  var query = 'SELECT e.id, e.name, e.gender, e.profile_img, e.extension_number, e.phone, e.birth, e.join_date, e.leave_date, dv.name AS division_name, dp.name AS department_name, p.name AS position_name FROM employees AS e LEFT JOIN divisions AS dv ON e.division_id = dv.id LEFT JOIN departments AS dp ON e.department_id = dp.id LEFT JOIN positions AS p ON e.position_id = p.id WHERE e.id = ?'
+
+  connection.query(query, [employee_id], (error, rows, fields) => {
     var resultCode = 404;
     var message = "에러가 발생했습니다.";
 
@@ -187,6 +158,12 @@ var employeeAPI = function(req, res) {
       resultCode = 200;
       message = "성공"
     }
+
+    var birth_origin = rows[0].birth
+    rows[0].birth = moment(birth_origin).utc().format('YYYY.MM.DD')
+
+    var join_date_origin = rows[0].join_date
+    rows[0].join_date = moment(join_date_origin).utc().format('YYYY.MM.DD')
 
     res.status(200).json(   
       {
@@ -304,6 +281,30 @@ var updateMemoAPI = function(req, res) {
   });
 }
 
+var departmentsAPI = function(req, res) {
+  // const division_id = req.query.division_id;
+
+  connection.query('SELECT de.id, de.division_id, dv.name AS division_name, de.name, dv.telephone FROM departments AS de LEFT JOIN divisions AS dv ON de.division_id = dv.id', (error, rows, fields) => {
+    var resultCode = 404;
+    var message = "에러가 발생했습니다.";
+
+    if (error) 
+      throw error;
+    else {
+      resultCode = 200;
+      message = "성공"
+    }
+
+    res.status(200).json(   
+      {
+        'code': resultCode,
+        'message': message,
+        'data': rows
+      }
+    );    
+  });
+}
+
 module.exports = {
   loginAPI: loginAPI,
   changePasswordAPI: changePasswordAPI,
@@ -311,5 +312,6 @@ module.exports = {
   employeeAPI: employeeAPI,
   memoAPI: memoAPI,
   addMemoAPI: addMemoAPI,
-  updateMemoAPI: updateMemoAPI
+  updateMemoAPI: updateMemoAPI,
+  departmentsAPI: departmentsAPI
 }
