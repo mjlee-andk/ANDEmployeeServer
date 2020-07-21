@@ -512,6 +512,31 @@ var likeCommentAPI = function(req, res) {
   	});
 }
 
+var boardCategoriesAPI = function(req, res) {
+	var query = 'SELECT * FROM board_categories';
+
+	connection.query(query, (error, rows, fields) => {
+		var resultCode = 404;
+		var message = "에러가 발생했습니다.";
+
+		if (error) 
+		  throw error;
+		else {
+		  resultCode = 200;
+		  message = "성공"
+		}
+
+		res.status(200).json(   
+		  {
+		    'code': resultCode,
+		    'message': message,
+		    'data': rows
+		  }
+		);
+
+	});
+}
+
 module.exports = {
   boardsAPI: boardsAPI,
   boardAPI: boardAPI,
@@ -522,5 +547,6 @@ module.exports = {
   addCommentAPI: addCommentAPI,
   updateCommentAPI: updateCommentAPI,
   deleteCommentAPI: deleteCommentAPI,
-  likeCommentAPI: likeCommentAPI
+  likeCommentAPI: likeCommentAPI,
+  boardCategoriesAPI: boardCategoriesAPI
 }

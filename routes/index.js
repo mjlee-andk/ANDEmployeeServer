@@ -43,6 +43,7 @@ router.post('/board/like', boardController.likeBoardAPI); // 게시글 좋아요
 router.post('/board/add', boardController.addBoardAPI); // 게시글 작성
 router.post('/board/update', boardController.updateBoardAPI); // 게시글 수정
 router.post('/board/delete', boardController.deleteBoardAPI); // 게시글 삭제
+router.get('/board/categories', boardController.boardCategoriesAPI); // 게시글 카테고리 목록
 
 
 //
