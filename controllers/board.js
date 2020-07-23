@@ -1,5 +1,4 @@
 const mysql = require('mysql');
-const bcrypt = require('bcrypt-nodejs');
 const uuid = require('uuid4');
 const moment = require('moment');
 const _ = require('underscore');
@@ -20,7 +19,7 @@ var boardsAPI = function(req, res) {
 
   var query = 'SELECT b.id, b.user_id, u.account AS user_name, b.category_id, bca.name AS category_name, b.title, b.contents, b.image, b.createdat, (SELECT COUNT(*) FROM board_comments WHERE b.id = board_id AND deletedat IS NULL) AS comment_count, (SELECT COUNT(*) FROM board_likes WHERE b.id = board_id AND deletedat IS NULL) AS like_count, (SELECT id FROM board_likes WHERE b.id = board_id AND user_id = "' + user_id + '") AS board_likes_id, (SELECT deletedat FROM board_likes WHERE b.id = board_id AND user_id = "' + user_id + '") AS board_likes_deletedat FROM boards AS b LEFT JOIN users AS u ON b.user_id = u.id LEFT JOIN board_categories AS bca ON b.category_id = bca.id WHERE ';
   
-  var queryWhere = 'b.category_id = "' + category_id + '" AND b.deletedat IS NULL';
+  var queryWhere = 'b.category_id LIKE "%' + category_id + '%" AND b.deletedat IS NULL';
 
   connection.query(query + queryWhere, (error, rows, fields) => {
     var resultCode = 404;
@@ -90,7 +89,7 @@ var boardAPI = function(req, res) {
 
 	// 댓글 가져오기
 	const promise2 = new Promise(function(resolve, reject){
-		var query = 'SELECT bcom.id, bcom.user_id, u.account AS user_name, bcom.comment, bcom.createdat, bcom.updatedat, (SELECT COUNT(*) FROM comment_likes WHERE bcom.id = comment_id) AS like_count, (SELECT id FROM comment_likes WHERE bcom.id = comment_id AND user_id = "' + user_id + '" AND deletedat IS NULL) AS like_clicked FROM board_comments AS bcom LEFT JOIN users AS u ON bcom.user_id = u.id WHERE ';
+		var query = 'SELECT bcom.id, bcom.user_id, u.account AS user_name, bcom.comment, bcom.createdat, bcom.updatedat, (SELECT COUNT(*) FROM comment_likes WHERE bcom.id = comment_id AND deletedat IS NULL) AS like_count, (SELECT id FROM comment_likes WHERE bcom.id = comment_id AND user_id = "' + user_id + '" AND deletedat IS NULL) AS like_clicked FROM board_comments AS bcom LEFT JOIN users AS u ON bcom.user_id = u.id WHERE ';
 		var queryWhere = 'bcom.board_id = "' + board_id + '" AND bcom.deletedat IS NULL';
 
 		connection.query(query + queryWhere, (error, rows, fields) => {
@@ -110,7 +109,7 @@ var boardAPI = function(req, res) {
 	})
 
 	const promise3 = new Promise(function(resolve, reject){
-		var query = 'SELECT * FROM board_likes WHERE board_id = "' + board_id + '" AND user_id = "' + user_id + '"';
+		var query = 'SELECT * FROM board_likes WHERE board_id = "' + board_id + '" AND user_id = "' + user_id + '" AND deletedat IS NULL';
 
 		connection.query(query, (error, rows, fields) => {
 			var resultCode = 404;
@@ -129,22 +128,28 @@ var boardAPI = function(req, res) {
 	})
 
 	Promise.all([promise1, promise2, promise3]).then(function (values) {
-		// console.log("모두 완료됨", values);
-
-		console.log(values[0]);
-		console.log(values[1]);
-		console.log(values[2]);
-
+		
 		var board = values[0];
 		var board_comments = values[1];
 		var board_likes = values[2];
 
+		// 게시글 좋아요 누른 경우
 		board.like_clicked = true;
 		if(board_likes == undefined) {
 			board.like_clicked = false;
 		}
 		else if(board_likes.deletedat != undefined) {
 			board.like_clicked = false;
+		}
+
+		// 댓글 중 좋아요 누른 경우
+		for(var i in board_comments) {
+			if(board_comments[i].like_clicked != null) {
+				board_comments[i].like_clicked = true
+			}
+			else {
+				board_comments[i].like_clicked = false
+			}
 		}
 
 		board.comments = board_comments;

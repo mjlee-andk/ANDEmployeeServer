@@ -49,8 +49,6 @@ var loginAPI = function(req, res) {
             if(res) {
               resultCode = 200;
               message = '로그인 성공! ' + rows[0].account + '님 환영합니다.';
-              console.log(resultCode);
-              console.log(message);
             }
             else {
               resultCode = 204;
