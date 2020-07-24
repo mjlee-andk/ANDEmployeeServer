@@ -16,6 +16,52 @@ connection.connect();
 var FCM = require('fcm-node');
 var serverKey = require('../config/and-employees-private-key.json');
 var fcm = new FCM(serverKey);
+
+var fcmSend = function(token, title, message) {
+	var fcmMessage = { 
+	    to: token, 	    
+	    notification: {
+	        title: title, 
+	        body: message 
+	    }
+	}
+
+	fcm.send(fcmMessage, function(err, response){
+		var resultCode = 404;
+	    var message = "에러가 발생했습니다.";
+
+	    if (err) {
+	        console.log("Something has gone wrong!")
+	    } else {
+	        console.log("Successfully sent with response: ", response)
+	        resultCode = 200;
+	        message = "성공";
+	    }
+	})
+}
+
+var fcmMultiSend = function(tokenList, title, message) {
+	var fcmMessage = { 
+	    registration_ids: tokenList, 	    
+	    notification: {
+	        title: title, 
+	        body: message 
+	    }
+	}
+
+	fcm.send(fcmMessage, function(err, response){
+		var resultCode = 404;
+	    var message = "에러가 발생했습니다.";
+
+	    if (err) {
+	        console.log("Something has gone wrong!")
+	    } else {
+	        console.log("Successfully sent with response: ", response)
+	        resultCode = 200;
+	        message = "성공";
+	    }
+	})
+}
  
 var fcmSendAPI = function(req, res) { 
 	const token = req.body.token;
@@ -47,7 +93,7 @@ var fcmSendAPI = function(req, res) {
 	        console.log("Successfully sent with response: ", response)
 	        // console.log(response.results[0].error)
 	        resultCode = 200;
-	        message = "성공"
+	        message = "성공";
 	    }
 	    res.status(200).json(
 	      {
@@ -64,12 +110,11 @@ var fcmBirthdayAPI = function(req, res) {
 	// 오늘 생일인 사람 DB에서 검색
 	// 푸시알람 테이블에서 알람 받기로한 사람 검색
 
+	// var today = moment().format('08-30');
 	var today = moment().format('MM-DD');
-	console.log(today);
 
 	var fcmMessageList = [];
 
-	// var query = 'SELECT * FROM employees WHERE birth LIKE "%' + today + '%"';
 	// 오늘 생일인 사람 이름, 부서, 직책
 	var query = 'SELECT e.name, e.department_id, d.name AS department_name, p.name AS position_name, u.id AS user_id FROM employees AS e LEFT JOIN positions AS p ON p.id = e.position_id LEFT JOIN departments AS d ON d.id = e.department_id LEFT JOIN users AS u ON u.employee_id = e.id WHERE e.birth LIKE "%' + today + '%"';
 
@@ -81,10 +126,8 @@ var fcmBirthdayAPI = function(req, res) {
 		  throw error;
 		}
 		else {
-		  resultCode = 200;
-		  message = "성공"
-
-		  console.log("생일자", rows)
+	  	  resultCode = 200;
+		  message = "성공";
 
 		  if(rows.length == 0) {
 		  	res.status(200).json(
@@ -97,62 +140,116 @@ var fcmBirthdayAPI = function(req, res) {
 		    return;
 		  }
 
-		  const promise = new Promise(function(resolve, reject){
-		  	for(var i in rows) {
-			  	var department_id = rows[i].department_id
-			  	var user_id = rows[i].user_id
-			  	console.log("department_id", department_id);
-			  	console.log("user_id", user_id);
+		  var promiseList = [];
+		  
+			for(var i in rows) {
 
-			  	// var query2 = 'SELECT u.device_token FROM users AS u LEFT JOIN employees AS e ON u.employee_id = e.id WHERE e.department_id = "' + department_id + '" AND u.is_push = 1';
-			  	var query2 = 'SELECT u.device_token, u.account FROM push_birth AS pb LEFT JOIN users AS u ON pb.user_id = u.id WHERE u.is_push = 1 AND pb.select_department_id = "' + department_id + '" AND pb.deletedat IS NULL AND pb.user_id != "' + user_id + '"';
-			  	
-			  	var title = rows[i].name + " " + rows[i].position_name + " 생일";
-			  	var contents = rows[i].department_name + " " + rows[i].name + " " + rows[i].position_name + "님의 생일을 축하해주세요."
+				const promise = new Promise(function(resolve, reject){
+					var department_id = rows[i].department_id;
+					var user_id = rows[i].user_id;
 
-			  	connection.query(query2, (error2, rows2, fields2) => {
-					var resultCode = 404;
-					var message = "에러가 발생했습니다.";
+					var query2 = 'SELECT u.device_token, u.account FROM push_birth AS pb LEFT JOIN users AS u ON pb.user_id = u.id WHERE u.is_push = 1 AND pb.select_department_id = "' + department_id + '" AND pb.deletedat IS NULL AND pb.user_id != "' + user_id + '"';
 
-					if (error2){
-					  throw error2;
-					  reject();
-					}
-					else {
-					  resultCode = 200;
-					  message = "성공"
+					var title = rows[i].name + " " + rows[i].position_name + " 생일";
+					var contents = rows[i].department_name + " " + rows[i].name + " " + rows[i].position_name + "님의 생일을 축하해주세요.";
 
-					  console.log("생일 알람 받을 사람 토큰", rows2)
+				  	connection.query(query2, (error2, rows2, fields2) => {
+						var resultCode = 404;
+						var message = "에러가 발생했습니다.";
 
-					  fcmMessage = {
-					  	'title': title,
-					  	'contents': contents,	
-					  	'tokens': rows2
-					  }
+						if (error2){
+						  throw error2;
+						  reject();
+						}
+						else {
+						  resultCode = 200;
+						  message = "성공";
 
-					  console.log("생일 알람 결과", fcmMessage)
-					  fcmMessageList.push(fcmMessage)
+						  fcmMessage = {
+						  	'title': title,
+						  	'contents': contents,	
+						  	'tokens': _.filter(rows2, function(val) {
+						  		return val['device_token'] != null;
+						  	})
+						  }
 
-					  if(rows.length == (i + 1)) {
-					  	resolve();
-					  }
-					}
+						  fcmMessageList.push(fcmMessage);
+
+						  resolve();
+						}
+					});
 				});
-			  }
-		  });
-		  promise.then(function(data) {
+
+				promiseList.push(promise);
+				
+			}
+
+			Promise.all(promiseList).then( (values) => {
 				console.log("최종 결과", fcmMessageList)
-				res.status(200).json(
-					{
-				        'code': resultCode,
-				        'message': message,
-				        'data': fcmMessageList
-		      		}
-			    );
+				// res.status(200).json(
+				// 	{
+				//         'code': resultCode,
+				//         'message': message,
+				//         'data': fcmMessageList
+		  //     		}
+			 //    );
+
+			 	var promiseList = [];
+			    for(var j in fcmMessageList) {
+			    	var item = fcmMessageList[j];
+			    	var fcmTitle = item.title;
+			    	var fcmContents = item.contents;
+			    	var fcmTokens = item.tokens;
+
+			    	if(fcmTokens.length > 0) {
+			    		var tokens = [];
+			    		for(var k in fcmTokens) {
+			    			var token = fcmTokens[k].device_token;
+
+			    			tokens.push(token);
+				    	}
+
+				    	var fcmMessage = { 
+				    		registration_ids: tokens,
+						    notification: {
+						        title: fcmTitle, 
+						        body: fcmContents 
+						    }
+						}
+
+						fcm.send(fcmMessage, function(err, response){
+							var resultCode = 404;
+						    var message = "에러가 발생했습니다.";
+
+						    var promise = new Promise(function(resolve, reject){
+								if (err) {
+							        console.log("Something has gone wrong!")
+							        reject();
+							    } else {
+							        console.log("Successfully sent with response: ", response)
+
+							        resultCode = 200;
+							        message = "성공"
+							        resolve();
+							    }
+						    })
+
+						    promiseList.push(promise);						    						    
+						})
+			    	}
+			    }
+
+			    Promise.all(promiseList).then((values) => {
+			    		res.status(200).json(
+			    		{
+				        	'code': resultCode,
+				        	'message': message
+				      	}
+				    );
+			    })
+			    
 			})
 		}
-
-		
 	});
 
 	// var fcmMessage = { //this may vary according to the message type (single recipient, multicast, topic, et cetera)
@@ -195,5 +292,7 @@ var fcmBirthdayAPI = function(req, res) {
 
 module.exports = {
   fcmSendAPI: fcmSendAPI,
-  fcmBirthdayAPI: fcmBirthdayAPI
+  fcmBirthdayAPI: fcmBirthdayAPI,
+  fcmSend: fcmSend,
+  fcmMultiSend: fcmMultiSend
 }

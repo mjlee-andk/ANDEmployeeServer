@@ -2,6 +2,7 @@ const mysql = require('mysql');
 const uuid = require('uuid4');
 const moment = require('moment');
 const _ = require('underscore');
+const fcmController = require('../controllers/fcm');
 
 const connection = mysql.createConnection({
   host: 'localhost',
@@ -272,6 +273,37 @@ var addBoardAPI = function(req, res) {
       resultCode = 200;
       message = "성공"
 
+      // 공지사항 일 경우 전 직원에게 푸시알람 보내기
+      // is_valid = 1
+      // is_push = 1
+      // device_token IS NOT NULL
+      if(category_id == '6797f061-c997-11ea-9982-20cf305809b8') {
+
+	      connection.query('SELECT device_token FROM users WHERE is_valid = 1 AND is_push = 1 AND device_token IS NOT NULL' , (error2, rows2, fields2) => {
+		    var resultCode = 404;
+		    var message = "에러가 발생했습니다.";
+
+		    if (error) 
+		      throw error;
+		    else {
+		      resultCode = 200;
+		      message = "성공";
+
+		      console.log(rows2);
+
+		      var tokenList = [];
+		      for(var i in rows2) {
+		      	var item = rows2[i];
+		      	tokenList.push(item.device_token);
+		      }
+
+		      console.log("token list", tokenList);
+
+		      fcmController.fcmSend(tokenList, "공지사항 알림", title);
+		    }
+		  });
+      }
+
       res.status(200).json(
         {
           'code': resultCode,
@@ -354,9 +386,10 @@ var addCommentAPI = function(req, res) {
   const board_id = req.body.board_id;
   const user_id = req.body.user_id;
   const comment = req.body.comment;
+  const user_name = req.body.name;
 
   var post = {
-    id : uuid(),
+  	id : uuid(),
     board_id : board_id,
     user_id : user_id, 
     comment : comment,
@@ -371,15 +404,34 @@ var addCommentAPI = function(req, res) {
       throw error;
     else {
       resultCode = 200;
-      message = "성공"
+      message = "성공";
 
-      res.status(200).json(
-        {
-          'code': resultCode,
-          'message': message,
-          'data': post
-        }
-      );
+      // 게시글 작성자에게 푸시알람 보내기
+      connection.query('SELECT u.device_token, u.is_push FROM boards AS b LEFT JOIN users AS u ON b.user_id = u.id WHERE b.id = "' + board_id + '"' , (error2, rows2, fields2) => {
+	    var resultCode = 404;
+	    var message = "에러가 발생했습니다.";
+
+	    if (error) 
+	      throw error;
+	    else {
+	      resultCode = 200;
+	      message = "성공";
+
+	      // console.log('rows2', rows2);
+	      // console.log('rows2.isPUSH', rows2[0].is_push);
+	      if( rows2[0].is_push == 1 ) {
+	      	// console.log('here');
+	      	fcmController.fcmSend(rows2[0].device_token, user_name + "님이 댓글을 달았습니다.", user_name + "님이 댓글을 달았습니다.");	
+	      }	      
+	    }	    
+	  });
+
+	  res.status(200).json(
+	        {
+	          'code': resultCode,
+	          'message': message
+	        }
+	      );      
     }
   });
 }
