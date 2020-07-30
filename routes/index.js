@@ -24,6 +24,7 @@ router.get('/employee', indexController.employeeAPI); // 직원상세조회
 router.get('/memo', indexController.memoAPI); // 메모 조회
 router.post('/memo/add', indexController.addMemoAPI); // 메모 처음 추가
 router.post('/memo/update', indexController.updateMemoAPI); // 메모 수정
+router.post('/memo/confirmpassword', indexController.confirmMemoPasswordAPI); // 메모 비밀번호
 
 
 //

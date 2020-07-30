@@ -34,15 +34,16 @@ var fcmSend = function(token, title, message) {
 	        console.log("Something has gone wrong!")
 	    } else {
 	        console.log("Successfully sent with response: ", response)
+	        // console.log("response.results[0]",response.results[0])
 	        resultCode = 200;
 	        message = "성공";
 	    }
 	})
 }
 
-var fcmMultiSend = function(tokenList, title, message) {
+var fcmMultiSend = function(tokens, title, message) {
 	var fcmMessage = { 
-	    registration_ids: tokenList, 	    
+	    registration_ids: tokens, 	    
 	    notification: {
 	        title: title, 
 	        body: message 
@@ -104,8 +105,31 @@ var fcmSendAPI = function(req, res) {
 	})
 }
 
+var fcmMultiSendAPI = function(tokens, title, message) {
+	var fcmMessage = { 
+	    registration_ids: tokens, 	    
+	    notification: {
+	        title: title, 
+	        body: message 
+	    }
+	}
+
+	fcm.send(fcmMessage, function(err, response){
+		var resultCode = 404;
+	    var message = "에러가 발생했습니다.";
+
+	    if (err) {
+	        console.log("Something has gone wrong!")
+	    } else {
+	        console.log("Successfully sent with response: ", response)
+	        resultCode = 200;
+	        message = "성공";
+	    }
+	})
+}
+
 // 생일 당사자 및 푸시알람 선택한 직원에게 보내기
-var fcmBirthdayAPI = function(req, res) {
+var fcmBirthAPI = function(req, res) {
 
 	// 오늘 생일인 사람 DB에서 검색
 	// 푸시알람 테이블에서 알람 받기로한 사람 검색
@@ -288,11 +312,9 @@ var fcmBirthdayAPI = function(req, res) {
 	// })
 }
 
-
-
 module.exports = {
-  fcmSendAPI: fcmSendAPI,
-  fcmBirthdayAPI: fcmBirthdayAPI,
-  fcmSend: fcmSend,
-  fcmMultiSend: fcmMultiSend
+	fcmSend: fcmSend,
+  	fcmSendAPI: fcmSendAPI,
+  	fcmMultiSendAPI: fcmMultiSendAPI,
+  	fcmBirthAPI: fcmBirthAPI
 }
