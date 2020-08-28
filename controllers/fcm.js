@@ -2,16 +2,9 @@ const mysql = require('mysql');
 const uuid = require('uuid4');
 const moment = require('moment');
 const _ = require('underscore');
+const config = require('../config/configure');
 
-const connection = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  port: 3307,
-  password: 'polygon',
-  database: 'andkorea'
-});
-
-connection.connect();
+const connection = config.db;
 
 var FCM = require('fcm-node');
 var serverKey = require('../config/and-employees-private-key.json');
@@ -147,33 +140,34 @@ var fcmBirthAPI = function(req, res) {
 		var message = "에러가 발생했습니다.";
 
 		if (error){
-		  throw error;
+		  	throw error;
 		}
 		else {
-	  	  resultCode = 200;
-		  message = "성공";
+		  	resultCode = 200;
+			message = "성공";
 
-		  if(rows.length == 0) {
-		  	res.status(200).json(
-				{
-			        'code': resultCode,
-			        'message': message,
-			        'data': []
-	      		}
-		    );
-		    return;
-		  }
+			// 생일자 없을 시 패스
+			if(rows.length == 0) {
+				res.status(200).json(
+					{
+				        'code': resultCode,
+				        'message': message,
+				        'data': []
+					}
+				);
+				return;
+			}
 
-		  var promiseList = [];
+			var promiseList = [];
 		  
 			for(var i in rows) {
-
 				const promise = new Promise(function(resolve, reject){
 					var department_id = rows[i].department_id;
 					var user_id = rows[i].user_id;
 
-					var query2 = 'SELECT u.device_token, u.account FROM push_birth AS pb LEFT JOIN users AS u ON pb.user_id = u.id WHERE u.is_push = 1 AND pb.select_department_id = "' + department_id + '" AND pb.deletedat IS NULL AND pb.user_id != "' + user_id + '"';
+					var query2 = 'SELECT u.device_token FROM push_birth AS pb LEFT JOIN users AS u ON pb.user_id = u.id WHERE u.is_push = 1 AND pb.select_department_id = "' + department_id + '" AND pb.deletedat IS NULL AND pb.user_id != "' + user_id + '"';
 
+					// 푸시알람에 보낼 제목과 메시지
 					var title = rows[i].name + " " + rows[i].position_name + " 생일";
 					var contents = rows[i].department_name + " " + rows[i].name + " " + rows[i].position_name + "님의 생일을 축하해주세요.";
 
@@ -191,7 +185,7 @@ var fcmBirthAPI = function(req, res) {
 
 						  fcmMessage = {
 						  	'title': title,
-						  	'contents': contents,	
+						  	'contents': contents,
 						  	'tokens': _.filter(rows2, function(val) {
 						  		return val['device_token'] != null;
 						  	})
@@ -205,111 +199,61 @@ var fcmBirthAPI = function(req, res) {
 				});
 
 				promiseList.push(promise);
-				
 			}
 
 			Promise.all(promiseList).then( (values) => {
 				console.log("최종 결과", fcmMessageList)
-				// res.status(200).json(
-				// 	{
-				//         'code': resultCode,
-				//         'message': message,
-				//         'data': fcmMessageList
-		  //     		}
-			 //    );
 
-			 	var promiseList = [];
+			 	var promiseList2 = [];
 			    for(var j in fcmMessageList) {
 			    	var item = fcmMessageList[j];
 			    	var fcmTitle = item.title;
 			    	var fcmContents = item.contents;
 			    	var fcmTokens = item.tokens;
+			    	console.log(fcmTokens);
 
-			    	if(fcmTokens.length > 0) {
-			    		var tokens = [];
-			    		for(var k in fcmTokens) {
-			    			var token = fcmTokens[k].device_token;
-
-			    			tokens.push(token);
-				    	}
-
-				    	var fcmMessage = { 
-				    		registration_ids: tokens,
-						    notification: {
-						        title: fcmTitle, 
-						        body: fcmContents 
-						    }
-						}
-
-						fcm.send(fcmMessage, function(err, response){
-							var resultCode = 404;
-						    var message = "에러가 발생했습니다.";
-
-						    var promise = new Promise(function(resolve, reject){
-								if (err) {
-							        console.log("Something has gone wrong!")
-							        reject();
-							    } else {
-							        console.log("Successfully sent with response: ", response)
-
-							        resultCode = 200;
-							        message = "성공"
-							        resolve();
-							    }
-						    })
-
-						    promiseList.push(promise);						    						    
-						})
+			    	if(fcmTokens.length == 0) {
+			    		continue;
 			    	}
-			    }
+			    	var tokens = [];
+		    		for(var k in fcmTokens) {
+		    			var token = fcmTokens[k].device_token;
 
-			    Promise.all(promiseList).then((values) => {
-			    		res.status(200).json(
-			    		{
-				        	'code': resultCode,
-				        	'message': message
-				      	}
-				    );
-			    })
-			    
+		    			tokens.push(token);
+			    	}
+
+			    	console.log('tokens:', tokens);
+
+			    	var fcmMessage = { 
+			    		registration_ids: tokens,
+					    notification: {
+					        title: fcmTitle, 
+					        body: fcmContents 
+					    }
+					}
+
+					fcm.send(fcmMessage, function(err, response){
+						var resultCode = 404;
+					    var message = "에러가 발생했습니다.";
+
+					    if (err) {
+					        console.log("Something has gone wrong!");
+					    } else {
+					        console.log("Successfully sent with response: ", response);
+
+					        resultCode = 200;
+					        message = "성공";
+					    }
+					})
+			    }
+			    res.status(200).json(
+	    		{
+		        	'code': resultCode,
+		        	'message': message
+		      	});
 			})
 		}
 	});
-
-	// var fcmMessage = { //this may vary according to the message type (single recipient, multicast, topic, et cetera)
-	//     to: token, 
-	//     // collapse_key: 'your_collapse_key',
-	    
-	//     notification: {
-	//         title: "생일 알람", 
-	//         body: contents 
-	//     }
-	    
-	//     // data: {  //you can send only notification or only data(or include both)
-	//     //     my_key: 'my value',
-	//     //     my_another_key: 'my another value'
-	//     // }
-	// }
-
-	// fcm.send(fcmMessage, function(err, response){
-	// 	var resultCode = 404;
-	//     var message = "에러가 발생했습니다.";
-
-	//     if (err) {
-	//         console.log("Something has gone wrong!")
-	//     } else {
-	//         console.log("Successfully sent with response: ", response)
-	//         // console.log(response.results[0].error)
-	//         resultCode = 200;
-	//         message = "성공"
-	//     }
-	//     res.status(200).json(
-	//       {
-	//         'code': resultCode,
-	//         'message': message
-	//       }
-	//     );
-	// })
 }
 
 module.exports = {

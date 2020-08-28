@@ -3,16 +3,10 @@ const bcrypt = require('bcrypt-nodejs');
 const uuid = require('uuid4');
 const moment = require('moment');
 const _ = require('underscore');
+const config = require('../config/configure');
 
-const connection = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  port: 3307,
-  password: 'polygon',
-  database: 'andkorea'
-});
-
-connection.connect();
+const connection = config.db;
+config.dbConnect(config.db);
 
 var loginAPI = function(req, res) {
   const account = req.body.account;
@@ -125,7 +119,8 @@ var employeesAPI = function(req, res) {
   var queryWhere = '';
   queryWhere = queryWhere + 'e.name LIKE "%' + search + '%" AND ';
   queryWhere = queryWhere + 'e.division_id LIKE "%' + division_id + '%" AND ';
-  queryWhere = queryWhere + 'e.department_id LIKE "%' + department_id + '%"';
+  queryWhere = queryWhere + 'e.department_id LIKE "%' + department_id + '%" AND ';
+  queryWhere = queryWhere + 'e.leave_date IS NULL';
 
   var queryOrder = ' ORDER BY p.priority ASC';
 
@@ -292,7 +287,7 @@ var updateMemoAPI = function(req, res) {
 var departmentsAPI = function(req, res) {
   // const division_id = req.query.division_id;
 
-  var query = 'SELECT de.id, de.name, de.telephone, de.division_id, dv.name AS division_name, dv.address, dv.telephone AS devision_telephone FROM departments AS de LEFT JOIN divisions AS dv ON de.division_id = dv.id ORDER BY name ASC';
+  var query = 'SELECT de.id, de.name, de.telephone, de.division_id, dv.name AS division_name, dv.address, dv.telephone AS devision_telephone FROM departments AS de LEFT JOIN divisions AS dv ON de.division_id = dv.id WHERE de.is_active = 1 ORDER BY de.order_seq ASC, de.name ASC';
 
   connection.query(query, (error, rows, fields) => {
     var resultCode = 404;

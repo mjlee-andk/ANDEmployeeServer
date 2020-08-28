@@ -3,16 +3,9 @@ const uuid = require('uuid4');
 const moment = require('moment');
 const _ = require('underscore');
 const fcmController = require('../controllers/fcm');
+const config = require('../config/configure');
 
-const connection = mysql.createConnection({
-  host: 'localhost',
-  user: 'root',
-  port: 3307,
-  password: 'polygon',
-  database: 'andkorea'
-});
-
-connection.connect();
+const connection = config.db;
 
 var boardsAPI = function(req, res) {
   const category_id = req.query.category_id;
