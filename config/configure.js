@@ -7,15 +7,15 @@ const db = mysql.createConnection({
     database: 'andkorea'
 });
 
-var dbConnect = function(database) {
-	database.connect(function(err) {            
+var dbConnect = function() {
+	db.connect(function(err) {            
 		if(err) {                            
 			console.log('error when connecting to db:', err);
 			setTimeout(dbConnect, 2000); 
 		}
 	});
 		                             
-	database.on('error', function(err) {
+	db.on('error', function(err) {
 		console.log('db error', err);
 		if(err.code === 'PROTOCOL_CONNECTION_LOST') { 
 			return dbConnect();
