@@ -6,7 +6,7 @@ const _ = require('underscore');
 const config = require('../config/configure');
 
 const connection = config.db;
-config.dbConnect();
+// config.dbConnect();
 
 var loginAPI = function(req, res) {
   const account = req.body.account;
