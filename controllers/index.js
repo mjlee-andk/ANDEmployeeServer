@@ -149,7 +149,7 @@ var employeesAPI = function(req, res) {
 var employeeAPI = function(req, res) {
   const employee_id = req.query.employee_id;
 
-  var query = 'SELECT e.id, e.name, e.gender, e.profile_img, e.extension_number, e.phone, e.birth, e.join_date, e.leave_date, dv.name AS division_name, dp.name AS department_name, p.name AS position_name FROM employees AS e LEFT JOIN divisions AS dv ON e.division_id = dv.id LEFT JOIN departments AS dp ON e.department_id = dp.id LEFT JOIN positions AS p ON e.position_id = p.id WHERE e.id = ?'
+  var query = 'SELECT e.id, e.name, e.gender, e.profile_img, e.extension_number, e.phone, e.birth, e.join_date, e.leave_date, e.school_name, e.final_education, e.annual_incomes, dv.name AS division_name, dp.name AS department_name, p.name AS position_name FROM employees AS e LEFT JOIN divisions AS dv ON e.division_id = dv.id LEFT JOIN departments AS dp ON e.department_id = dp.id LEFT JOIN positions AS p ON e.position_id = p.id WHERE e.id = ?'
 
   connection.query(query, [employee_id], (error, rows, fields) => {
     var resultCode = 404;
@@ -167,6 +167,14 @@ var employeeAPI = function(req, res) {
 
     var join_date_origin = rows[0].join_date
     rows[0].join_date = moment(join_date_origin).format('YYYY.MM.DD')
+
+    if(rows[0].final_education == null) {
+      rows[0].final_education = -1;
+    }
+
+    if(rows[0].annual_incomes == null) {
+      rows[0].annual_incomes = "";
+    }
 
     res.status(200).json(   
       {
